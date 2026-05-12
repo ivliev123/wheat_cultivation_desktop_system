@@ -1,26 +1,16 @@
 from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QGroupBox, QLabel, 
+    QMainWindow, QWidget, QGroupBox, QLabel, 
     QGridLayout, QTableWidget, QTableWidgetItem,
-    QPushButton, QVBoxLayout, QHBoxLayout, QSpacerItem, 
-    QSizePolicy, QHeaderView, QAbstractItemView,
-    QLineEdit, QFileDialog, QMessageBox, QComboBox,
+    QPushButton, QVBoxLayout, QHBoxLayout, 
+    QSizePolicy, QLineEdit, QComboBox,
     QRadioButton, QButtonGroup
 )
 from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtGui import QPixmap, QColor, QIcon, QFont
 
-import sys
-from pymodbus.client import ModbusSerialClient
-import serial.tools.list_ports
 
-# from services_serial_manager import SerialManager
-
-# from workers_camera_worker import CameraWorker
-# from workers_modbus_worker import ModbusWorker
 from controllers_camera_controller import CameraController
 from controllers_modbus_controller import ModbusController
-
-
 from config import *
 
 
@@ -30,11 +20,9 @@ class MainWindow(QMainWindow):
 
 
         self.init_ui()
-        # self.serial_manager = SerialManager()
         self.camera_controller = CameraController(self)
         self.modbus_controller = ModbusController(self)
 
-        # self.start_cameras()
         self.camera_controller.start_cameras() 
         self.modbus_controller.update_ports()
         
@@ -321,7 +309,6 @@ class MainWindow(QMainWindow):
         self.camera_layout.addWidget(self.camera_label_1)
         self.camera_layout.addWidget(self.camera_label_2)
 
-
         ###############################################################################################
 
         main_layout.addWidget(setting_groupbox, 0, 0, 1, 2)
@@ -331,5 +318,4 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(self.dev2_sensor_humidity_gnd_group, 4, 0, 1, 1)  
 
         main_layout.addWidget(self.camera_group, 1, 1, 4, 1)
-        # main_layout.addWidget(self.test_wire_group, 1, 1, 1, 1)  
-        # main_layout.addWidget(self.edit_wire_group, 1, 2, 1, 1)  
+

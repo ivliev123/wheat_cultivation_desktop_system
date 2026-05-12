@@ -4,6 +4,8 @@ import time
 
 from config import *
 
+# Сценарий скорей всего прийдется писать здесь
+
 
 class ModbusWorker(QtCore.QThread):
     data_updated = QtCore.pyqtSignal(dict)
