@@ -10,16 +10,16 @@ from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtGui import QPixmap, QColor, QIcon, QFont
 
 import sys
-import time
 from pymodbus.client import ModbusSerialClient
 import serial.tools.list_ports
 
-import cv2
+# from services_serial_manager import SerialManager
 
-from services_serial_manager import SerialManager
+# from workers_camera_worker import CameraWorker
+# from workers_modbus_worker import ModbusWorker
+from controllers_camera_controller import CameraController
+from controllers_modbus_controller import ModbusController
 
-from workers_camera_worker import CameraWorker
-from workers_modbus_worker import ModbusWorker
 
 from config import *
 
@@ -28,246 +28,33 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.camera_configs = [
-            {
-                "id": CAM_ID_1,
-                "folder": PHOTO_FOLDER_1,
-                "label_id": 1
-            },
-            {
-                "id": CAM_ID_2,
-                "folder": PHOTO_FOLDER_2,
-                "label_id": 2
-            }
-        ]
 
         self.init_ui()
-
-        self.start_cameras()
-
-        self.photo_button.clicked.connect(self.take_photo)
-
-
-        self.pump_1_pushbutton_ON.clicked.connect(lambda: self.pump_pushbutton_function(1, 1))
-        self.pump_1_pushbutton_OFF.clicked.connect(lambda: self.pump_pushbutton_function(1, 0))
-        self.pump_2_pushbutton_ON.clicked.connect(lambda: self.pump_pushbutton_function(2, 1))
-        self.pump_2_pushbutton_OFF.clicked.connect(lambda: self.pump_pushbutton_function(2, 0))
-
-        self.lamp_pushbutton.clicked.connect(self.lamp_callback)
-
-        self.update_button.clicked.connect(self.update_ports)
-        self.connect_button.clicked.connect(self.toggle_connection)
-
-        self.update_ports()
-
-
-    def update_ports(self):
-        self.port_combo.clear()
-        ports = self.serial_manager.get_available_ports()
-        self.port_combo.addItems(ports)
-
-    
-    def toggle_connection(self):
-        if not self.serial_manager.connected:
-            port = self.port_combo.currentText()
-            self.serial_manager.connect(port)
-
-            self.worker = ModbusWorker(port)
-            self.worker.data_updated.connect(self.update_ui)
-            self.worker.start()
-
-            self.connect_button.setText("Disconnect")
-        else:
-            self.serial_manager.disconnect()
-
-            if hasattr(self, "worker"):
-                self.worker.stop()
-                self.worker.wait()
-
-            self.connect_button.setText("Connect")
-
-
-    # CAMERA
-    def update_camera(self, image, cam_id):
-
-        pixmap = QPixmap.fromImage(image)
-
-        if cam_id == 1:
-            label = self.camera_label_1
-        else:
-            label = self.camera_label_2
-
-        label.setPixmap(
-            pixmap.scaled(
-                label.size(),
-                QtCore.Qt.KeepAspectRatio,
-                QtCore.Qt.SmoothTransformation
-            )
-        )
-
-    def closeEvent(self, event):
-
-        self.stop_cameras()
-
-        if hasattr(self, "worker"):
-            self.worker.stop()
-            self.worker.wait()
-
-        event.accept()
-
-    def start_cameras(self):
-
-        self.camera_workers = []
-
-        for cam in self.camera_configs:
-
-            worker = CameraWorker(cam["id"])
-
-            worker.frame_updated.connect(
-                lambda img, label_id=cam["label_id"]:
-                self.update_camera(img, label_id)
-            )
-
-            worker.start()
-
-            self.camera_workers.append(worker)
-
-    def stop_cameras(self):
-
-        for worker in self.camera_workers:
-            worker.stop()
-
-        for worker in self.camera_workers:
-            worker.wait()
-
-
-    def capture_highres_photo(self, camera_id, folder):
-
-        cap = cv2.VideoCapture(camera_id)
-
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAM_CAPTURE_W)
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAM_CAPTURE_H)
-
-        # даём камере прогреться
-        time.sleep(2.0)
-
-        frame = None
-
-        # считываем несколько кадров
-        for _ in range(15):
-
-            ret, frame = cap.read()
-
-            if not ret:
-                continue
-            time.sleep(0.03)
-
-        if frame is not None:
-
-            filename = (
-                f"{folder}/photo_"
-                f"{time.strftime('%Y%m%d_%H%M%S')}.jpg"
-            )
-            cv2.imwrite(filename, frame)
-            print(f"Saved: {filename}")
-
-        else:
-            print(f"Failed capture from camera {camera_id}")
-
-        cap.release()
-
-    def take_photo(self):
-
-        self.stop_cameras()
-        try:
-            for cam in self.camera_configs:
-                self.capture_highres_photo(
-                    cam["id"],
-                    cam["folder"]
-                )
-        finally:
-            self.start_cameras()
-    # CAMERA
-
-
-    def pump_pushbutton_function(self, pump_number, pump_status):
-        # отправка через ModbusWorker
-        if hasattr(self, "worker"):
-            if pump_number == 1:
-                REG = REG_Relay_3
-            if pump_number == 2:
-                REG = REG_Relay_4
-            self.worker.client.write_registers(REG, [pump_status], slave=SLAVE_BOARD_ID_1)
-
-
-        else:
-            print("Worker not initialized")
-
-
-        print(f"Pump №{pump_number}: {pump_status}")
-
-
-    def update_ui(self, data):
-        # Температура
-        self.sensor_BME280_1_temperature_lineedit.setText(f"{data['sensor_BME280_1_temperature']:.2f}")
-        self.sensor_BME280_1_pressure_lineedit.setText(f"{data['sensor_BME280_1_pressure']:.2f}")
-        self.sensor_BME280_1_humidity_lineedit.setText(f"{data['sensor_BME280_1_humidity']:.2f}")
-
-        self.sensor_BME280_2_temperature_lineedit.setText(f"{data['sensor_BME280_2_temperature']:.2f}")
-        self.sensor_BME280_2_pressure_lineedit.setText(f"{data['sensor_BME280_2_pressure']:.2f}")
-        self.sensor_BME280_2_humidity_lineedit.setText(f"{data['sensor_BME280_2_humidity']:.2f}")
-
-        # ADC (влажность почвы)
-        if "adc" in data:
-            for i, value in enumerate(data["adc"]):
-                if i < len(self.sensor_widgets):
-                    self.sensor_widgets[i][1].setText(str(value))
-
-        # Flow
-        if "flow" in data:
-            if len(data["flow"]) > 0:
-                self.flow_sensor_1_lineedit.setText(str(data["flow"][0]))
-            if len(data["flow"]) > 1:
-                self.flow_sensor_2_lineedit.setText(str(data["flow"][1]))
-
-                
-
-    def lamp_callback(self):
-        values = []
-
-        try:
-            for i, le in enumerate(self.channel_widgets):
-                text = le.text().strip()
-
-                if text == "":
-                    raise ValueError(f"Channel {i+1} is empty")
-
-                value = int(text)
-
-                if not 0 <= value <= 200:
-                    raise ValueError(f"Channel {i+1} out of range (0-200)")
-
-                values.append(value)
-
-            # отправка через ModbusWorker
-            if hasattr(self, "worker"):
-                self.worker.client.write_registers(
-                    REG_Channal_1,  # стартовый регистр (0)
-                    values,
-                    slave=SLAVE_BOARD_ID_1
-                )
-            else:
-                print("Worker not initialized")
-
-            print("Lamp channels set:", values)
-
-        except Exception as e:
-            QMessageBox.warning(self, "Input error", str(e))
-
-
-
-
-
+        # self.serial_manager = SerialManager()
+        self.camera_controller = CameraController(self)
+        self.modbus_controller = ModbusController(self)
+
+        # self.start_cameras()
+        self.camera_controller.start_cameras() 
+        self.modbus_controller.update_ports()
+        
+        self.connect_signals()
+
+    def connect_signals(self):
+        # camera_controller
+        self.photo_button.clicked.connect(self.camera_controller.take_photo)
+
+        # modbus_controller
+        self.pump_1_pushbutton_ON.clicked.connect(lambda: self.modbus_controller.pump_pushbutton_function(1, 1))
+        self.pump_1_pushbutton_OFF.clicked.connect(lambda: self.modbus_controller.pump_pushbutton_function(1, 0))
+        self.pump_2_pushbutton_ON.clicked.connect(lambda: self.modbus_controller.pump_pushbutton_function(2, 1))
+        self.pump_2_pushbutton_OFF.clicked.connect(lambda: self.modbus_controller.pump_pushbutton_function(2, 0))
+        self.lamp_pushbutton.clicked.connect(self.modbus_controller.lamp_callback)
+
+        self.update_button.clicked.connect(self.modbus_controller.update_ports)
+        self.connect_button.clicked.connect(self.modbus_controller.toggle_connection)
+
+        
     def init_ui(self):
 
         self.setWindowTitle("Modbus Control Panel")
@@ -278,14 +65,10 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(main_widget)
         main_layout = QGridLayout(main_widget)
 
-        # SERIAL
-        ############################################################################################### 
-        # (тут должны быть 3 подблока: выбор компорта, устройства с указанием удресов устройств, режим авто или ручной )
-        self.serial_manager = SerialManager()
+
         # ===== Панель подключения =====
         ##############################
         setting_groupbox = QGroupBox("")
-        # setting_groupbox.setMaximumSize(1200, 300)
         setting_gridlayout = QGridLayout(setting_groupbox)
 
         serial_groupbox = QGroupBox("Serial")
@@ -546,8 +329,6 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(self.dev2_sensor_BME280_group, 2, 0, 1, 1) 
         main_layout.addWidget(self.dev1_pump_dev2_sensor_flow_group, 3, 0, 1, 1)  
         main_layout.addWidget(self.dev2_sensor_humidity_gnd_group, 4, 0, 1, 1)  
-
-        
 
         main_layout.addWidget(self.camera_group, 1, 1, 4, 1)
         # main_layout.addWidget(self.test_wire_group, 1, 1, 1, 1)  
