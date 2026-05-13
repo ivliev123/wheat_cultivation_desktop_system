@@ -2,7 +2,7 @@ from PyQt5.QtWidgets import  QMessageBox
 
 from services_serial_manager import SerialManager
 from workers_modbus_worker import ModbusWorker
-
+from config import *
 
 class ModbusController:
 
