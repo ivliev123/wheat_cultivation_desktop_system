@@ -61,7 +61,7 @@ CAM_CAPTURE_W = 2560
 CAM_CAPTURE_H = 1440
 
 
-CAM_ID_1 = 1
+CAM_ID_1 = 0
 CAM_ID_2 = 2
 
 PHOTO_FOLDER_1 = "Captures_cam_1"

@@ -1,4 +1,4 @@
-
+# controllers_camera_controller.py
 from PyQt5 import QtCore
 from PyQt5.QtGui import QPixmap
 
@@ -83,49 +83,32 @@ class CameraController:
             worker.wait()
 
 
-    def capture_highres_photo(self, camera_id, folder):
 
-        cap = cv2.VideoCapture(camera_id)
+    def capture_highres_photo(self, worker, folder):
 
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAM_CAPTURE_W)
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAM_CAPTURE_H)
+        frame = worker.get_frame()
 
-        # даём камере прогреться
-        time.sleep(2.0)
+        if frame is None:
+            print("No frame")
+            return
 
-        frame = None
+        filename = (
+            f"{folder}/photo_"
+            f"{time.strftime('%Y%m%d_%H%M%S')}.jpg"
+        )
 
-        # считываем несколько кадров
-        for _ in range(15):
+        cv2.imwrite(filename, frame)
 
-            ret, frame = cap.read()
+        print(f"Saved: {filename}")
 
-            if not ret:
-                continue
-            time.sleep(0.03)
-
-        if frame is not None:
-
-            filename = (
-                f"{folder}/photo_"
-                f"{time.strftime('%Y%m%d_%H%M%S')}.jpg"
-            )
-            cv2.imwrite(filename, frame)
-            print(f"Saved: {filename}")
-
-        else:
-            print(f"Failed capture from camera {camera_id}")
-
-        cap.release()
-
+            
     def take_photo(self):
 
-        self.stop_cameras()
-        try:
-            for cam in self.camera_configs:
-                self.capture_highres_photo(
-                    cam["id"],
-                    cam["folder"]
-                )
-        finally:
-            self.start_cameras()
+        for index, cam in enumerate(self.camera_configs):
+
+            worker = self.camera_workers[index]
+
+            self.capture_highres_photo(
+                worker,
+                cam["folder"]
+            )
