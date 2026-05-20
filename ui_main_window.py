@@ -9,8 +9,10 @@ from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtGui import QPixmap, QColor, QIcon, QFont
 
 
-from controllers_camera_controller import CameraController
-from controllers_modbus_controller import ModbusController
+# from Controllers.camera_controller import CameraController
+# from Controllers.modbus_controller import ModbusController
+# from main_controller import MainController
+
 from config import *
 
 
@@ -20,27 +22,32 @@ class MainWindow(QMainWindow):
 
 
         self.init_ui()
-        self.camera_controller = CameraController(self)
-        self.modbus_controller = ModbusController(self)
+        # self.main_controller = MainController(self)
+        # # self.main_controller = MainController()
 
-        self.camera_controller.start_cameras() 
-        self.modbus_controller.update_ports()
+        # self.main_controller.start()
+
+    #     self.camera_controller = CameraController(self)
+    #     self.modbus_controller = ModbusController(self)
+
+    #     self.camera_controller.start_cameras() 
+    #     self.modbus_controller.update_ports()
         
-        self.connect_signals()
+    #     self.connect_signals()
 
-    def connect_signals(self):
-        # camera_controller
-        self.photo_button.clicked.connect(self.camera_controller.take_photo)
+    # def connect_signals(self):
+    #     # camera_controller
+    #     self.photo_button.clicked.connect(self.camera_controller.take_photo)
 
-        # modbus_controller
-        self.pump_1_pushbutton_ON.clicked.connect(lambda: self.modbus_controller.pump_pushbutton_function(1, 1))
-        self.pump_1_pushbutton_OFF.clicked.connect(lambda: self.modbus_controller.pump_pushbutton_function(1, 0))
-        self.pump_2_pushbutton_ON.clicked.connect(lambda: self.modbus_controller.pump_pushbutton_function(2, 1))
-        self.pump_2_pushbutton_OFF.clicked.connect(lambda: self.modbus_controller.pump_pushbutton_function(2, 0))
-        self.lamp_pushbutton.clicked.connect(self.modbus_controller.lamp_callback)
+    #     # modbus_controller
+    #     self.pump_1_pushbutton_ON.clicked.connect(lambda: self.modbus_controller.pump_pushbutton_function(1, 1))
+    #     self.pump_1_pushbutton_OFF.clicked.connect(lambda: self.modbus_controller.pump_pushbutton_function(1, 0))
+    #     self.pump_2_pushbutton_ON.clicked.connect(lambda: self.modbus_controller.pump_pushbutton_function(2, 1))
+    #     self.pump_2_pushbutton_OFF.clicked.connect(lambda: self.modbus_controller.pump_pushbutton_function(2, 0))
+    #     self.lamp_pushbutton.clicked.connect(self.modbus_controller.lamp_callback)
 
-        self.update_button.clicked.connect(self.modbus_controller.update_ports)
-        self.connect_button.clicked.connect(self.modbus_controller.toggle_connection)
+    #     self.update_button.clicked.connect(self.modbus_controller.update_ports)
+    #     self.connect_button.clicked.connect(self.modbus_controller.toggle_connection)
 
         
     def init_ui(self):
