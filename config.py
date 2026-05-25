@@ -67,5 +67,16 @@ CAM_ID_2 = 2
 PHOTO_FOLDER_1 = "Captures_cam_1"
 PHOTO_FOLDER_2 = "Captures_cam_2"
 
+CAMERA_CAPTURE_INTERVAL = 20
 
 # =============================================
+
+
+# Полив
+
+IRRIGATION_INTERVAL = 60 * 60        # раз в час
+IRRIGATION_DURATION = 10             # поливать 10 секунд
+
+IRRIGATION_RELAY = REG_Relay_3
+
+IRRIGATION_STATE_FILE = "irrigation_state.json"

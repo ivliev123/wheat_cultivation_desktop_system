@@ -1,5 +1,8 @@
 # controllers_modbus_controller.py
 from PyQt5.QtWidgets import  QMessageBox
+from PyQt5 import QtCore
+import os
+
 
 from services_serial_manager import SerialManager
 from workers_modbus_worker import ModbusWorker
@@ -7,9 +10,51 @@ from config import *
 
 class ModbusController:
 
-    def __init__(self, window):
+    def __init__(self, window, camera_controller):
         self.window = window
         self.serial_manager = SerialManager()
+        self.camera_controller = camera_controller
+
+        self.worker = None
+        # таймер проверки USB
+        self.port_timer = QtCore.QTimer()
+        self.port_timer.timeout.connect(
+            self.auto_connect
+        )
+        self.port_timer.start(2000)
+
+
+
+    def auto_connect(self):
+
+        # уже подключены
+        if self.worker is not None:
+            return
+
+        port = "/dev/ttyUSB0"
+        # устройство не найдено
+        if not os.path.exists(port):
+            return
+
+        print(f"Found {port}")
+
+        try:
+            self.serial_manager.connect(port)
+            self.worker = ModbusWorker(port, self.camera_controller)
+            self.worker.data_updated.connect(
+                self.update_ui
+            )
+            self.worker.start()
+            self.window.connect_button.setText(
+                "Connected"
+            )
+
+            print("Modbus connected")
+
+        except Exception as e:
+
+            print("Connect error:", e)
+
 
 
     def update_ports(self):

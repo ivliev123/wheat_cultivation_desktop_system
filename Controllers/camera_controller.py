@@ -47,40 +47,33 @@ class CameraController:
             )
         )
 
-    def closeEvent(self, event):
+    # def closeEvent(self, event):
 
-        self.stop_cameras()
-
-        if hasattr(self, "worker"):
-            self.worker.stop()
-            self.worker.wait()
-
-        event.accept()
+    #     self.stop_cameras()
+    #     if hasattr(self, "worker"):
+    #         self.worker.stop()
+    #         self.worker.wait()
+    #     event.accept()
 
     def start_cameras(self):
 
         self.camera_workers = []
-
         for cam in self.camera_configs:
-
             worker = CameraWorker(cam["id"])
-
             worker.frame_updated.connect(
                 lambda img, label_id=cam["label_id"]:
                 self.update_camera(img, label_id)
             )
-
             worker.start()
-
             self.camera_workers.append(worker)
 
-    def stop_cameras(self):
+    # def stop_cameras(self):
 
-        for worker in self.camera_workers:
-            worker.stop()
+    #     for worker in self.camera_workers:
+    #         worker.stop()
 
-        for worker in self.camera_workers:
-            worker.wait()
+    #     for worker in self.camera_workers:
+    #         worker.wait()
 
 
 

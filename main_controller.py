@@ -1,9 +1,7 @@
-
+# main_controller.py
 
 from Controllers.camera_controller import CameraController
 from Controllers.modbus_controller import ModbusController
-# from Controllers.lamp_controller import LampController
-# from Controllers.irrigation_controller import IrrigationController
 
 
 class MainController():
@@ -11,14 +9,21 @@ class MainController():
     def __init__(self, window):
 
         self.window = window
-
+        # создаем 2 контроллера которые в совю очередь запускают 2 workera на камеры и worker на modbus
         self.camera_controller = CameraController(self.window)
-        self.modbus_controller = ModbusController(self.window)
+        self.modbus_controller = ModbusController(self.window, self.camera_controller)
 
         self.camera_controller.start_cameras() 
         self.modbus_controller.update_ports()
         
         self.connect_signals()
+
+        # потом тут добавим механиз включения и отключения ручного режима 
+        # через какую-то переменную и ModbusWorkera будем ограничивать работу workera 
+
+
+        # self.auto_state_machine()
+
 
     def connect_signals(self):
         # camera_controller
@@ -33,3 +38,14 @@ class MainController():
 
         self.window.update_button.clicked.connect(self.modbus_controller.update_ports)
         self.window.connect_button.clicked.connect(self.modbus_controller.toggle_connection)
+
+
+
+    # def auto_state_machine(self):
+
+    #     if self.modbus_controller.worker is None:
+    #         print("Modbus not connected")
+    #         return
+
+
+    #     self.lamp_controller.lamp_call_back()

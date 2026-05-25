@@ -19,36 +19,8 @@ from config import *
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-
-
-        self.init_ui()
-        # self.main_controller = MainController(self)
-        # # self.main_controller = MainController()
-
-        # self.main_controller.start()
-
-    #     self.camera_controller = CameraController(self)
-    #     self.modbus_controller = ModbusController(self)
-
-    #     self.camera_controller.start_cameras() 
-    #     self.modbus_controller.update_ports()
         
-    #     self.connect_signals()
-
-    # def connect_signals(self):
-    #     # camera_controller
-    #     self.photo_button.clicked.connect(self.camera_controller.take_photo)
-
-    #     # modbus_controller
-    #     self.pump_1_pushbutton_ON.clicked.connect(lambda: self.modbus_controller.pump_pushbutton_function(1, 1))
-    #     self.pump_1_pushbutton_OFF.clicked.connect(lambda: self.modbus_controller.pump_pushbutton_function(1, 0))
-    #     self.pump_2_pushbutton_ON.clicked.connect(lambda: self.modbus_controller.pump_pushbutton_function(2, 1))
-    #     self.pump_2_pushbutton_OFF.clicked.connect(lambda: self.modbus_controller.pump_pushbutton_function(2, 0))
-    #     self.lamp_pushbutton.clicked.connect(self.modbus_controller.lamp_callback)
-
-    #     self.update_button.clicked.connect(self.modbus_controller.update_ports)
-    #     self.connect_button.clicked.connect(self.modbus_controller.toggle_connection)
-
+        self.init_ui()
         
     def init_ui(self):
 
