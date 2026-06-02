@@ -16,28 +16,16 @@ class CameraController:
         self.window = window
 
         self.camera_configs = [
-            {
-                "id": CAM_ID_1,
-                "folder": PHOTO_FOLDER_1,
-                "label_id": 1
-            },
-            {
-                "id": CAM_ID_2,
-                "folder": PHOTO_FOLDER_2,
-                "label_id": 2
-            }
+            {"id": CAM_ID_1, "folder": PHOTO_FOLDER_1, "label_id": 1},
+            {"id": CAM_ID_2, "folder": PHOTO_FOLDER_2, "label_id": 2}
         ]
 
 
     # CAMERA
     def update_camera(self, image, cam_id):
-
         pixmap = QPixmap.fromImage(image)
 
-        if cam_id == 1:
-            label = self.window.camera_label_1
-        else:
-            label = self.window.camera_label_2
+        label = self.window.camera_label_1 if cam_id == 1 else self.window.camera_label_2
 
         label.setPixmap(
             pixmap.scaled(

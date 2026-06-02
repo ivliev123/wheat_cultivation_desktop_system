@@ -10,21 +10,41 @@ from config import *
 
 class ModbusController:
 
-    def __init__(self, window, camera_controller):
+    def __init__(self, window, camera_controller, is_auto=False):
         self.window = window
         self.serial_manager = SerialManager()
         self.camera_controller = camera_controller
 
         self.worker = None
+        
         # таймер проверки USB
         self.port_timer = QtCore.QTimer()
-        self.port_timer.timeout.connect(
-            self.auto_connect
-        )
+        self.port_timer.timeout.connect(self.auto_connect)
         self.port_timer.start(2000)
 
+        # Подключаем сигналы смены режима
+        self.window.manual_radio.toggled.connect(self.mode_changed)
+        self.window.auto_radio.toggled.connect(self.mode_changed)
+        
+        # Флаг авто режима
+        self.is_auto = is_auto
 
-
+    def mode_changed(self, checked):
+        # Вызывается при смене Manual ↔ Auto
+        if self.worker is None:
+            return
+        
+        if not checked:
+            return
+        
+        if self.window.auto_radio.isChecked():
+            self.worker.set_mode(True)
+        else:
+            self.worker.set_mode(False)
+        
+        
+        
+    
     def auto_connect(self):
 
         # уже подключены
@@ -36,19 +56,15 @@ class ModbusController:
         if not os.path.exists(port):
             return
 
-        print(f"Found {port}")
+        print(f"Найден порт: {port}")
 
         try:
             self.serial_manager.connect(port)
             self.worker = ModbusWorker(port, self.camera_controller)
-            self.worker.data_updated.connect(
-                self.update_ui
-            )
+            self.worker.data_updated.connect(self.update_ui)
+            self.worker.set_mode(self.is_auto)
             self.worker.start()
-            self.window.connect_button.setText(
-                "Connected"
-            )
-
+            self.window.connect_button.setText("Connected")
             print("Modbus connected")
 
         except Exception as e:
@@ -66,51 +82,74 @@ class ModbusController:
     def toggle_connection(self):
         if not self.serial_manager.connected:
             port = self.window.port_combo.currentText()
+            
+            if not port:
+                return
+            
             self.serial_manager.connect(port)
 
-            self.worker = ModbusWorker(port)
+            self.worker = ModbusWorker(port, self.camera_controller)
             self.worker.data_updated.connect(self.update_ui)
+            self.worker.set_mode(self.is_auto)
             self.worker.start()
 
             self.window.connect_button.setText("Disconnect")
         else:
-            self.serial_manager.disconnect()
+            self.toggle_disconnect()
 
-            if hasattr(self, "worker"):
-                self.worker.stop()
-                self.worker.wait()
+    def toggle_disconnect(self):
+        self.serial_manager.disconnect()
+        self.stop_worker()
+        self.window.connect_button.setText("Connect")
 
-            self.window.connect_button.setText("Connect")
+    def stop_worker(self):
+        if self.worker is not None and self.worker.isRunning():
+            self.worker.stop()
+            self.worker.quit()
+            self.worker.wait()
+            self.worker = None
+            print("ModBus остановлен")
 
-
-
-
-    def pump_pushbutton_function(self, pump_number, pump_status):
+    def pump_pushbutton_function(self, pump_id, pump_status):
         # отправка через ModbusWorker
-        if hasattr(self, "worker"):
-            if pump_number == 1:
+        if self.worker is not None and self.worker.isRunning():
+            if pump_id == 1:
                 REG = REG_Relay_3
-            if pump_number == 2:
+            if pump_id == 2:
                 REG = REG_Relay_4
-            self.worker.client.write_registers(REG, [pump_status], slave=SLAVE_BOARD_ID_1)
-
+            else:
+                return
+            
+            self.worker.send_command(
+                self.worker.client.write_register,
+                REG,
+                pump_status,
+                slave=SLAVE_BOARD_ID_1
+            )
 
         else:
-            print("Worker not initialized")
+            print("Worker not initialized or not running")
 
 
-        print(f"Pump №{pump_number}: {pump_status}")
+        print(f"Pump №{pump_id}: {pump_status}")
 
 
     def update_ui(self, data):
-        # Температура
-        self.window.sensor_BME280_1_temperature_lineedit.setText(f"{data['sensor_BME280_1_temperature']:.2f}")
-        self.window.sensor_BME280_1_pressure_lineedit.setText(f"{data['sensor_BME280_1_pressure']:.2f}")
-        self.window.sensor_BME280_1_humidity_lineedit.setText(f"{data['sensor_BME280_1_humidity']:.2f}")
+        # BME280 #1
+        if 'sensor_BME280_1_temperature' in data:
+            self.window.sensor_BME280_1_temperature_lineedit.setText(f"{data['sensor_BME280_1_temperature']:.2f}")
+        if 'sensor_BME280_1_pressure' in data:
+            self.window.sensor_BME280_1_pressure_lineedit.setText(f"{data['sensor_BME280_1_pressure']:.2f}")
+        if 'sensor_BME280_1_humidity' in data:
+            self.window.sensor_BME280_1_humidity_lineedit.setText(f"{data['sensor_BME280_1_humidity']:.2f}")
 
-        self.window.sensor_BME280_2_temperature_lineedit.setText(f"{data['sensor_BME280_2_temperature']:.2f}")
-        self.window.sensor_BME280_2_pressure_lineedit.setText(f"{data['sensor_BME280_2_pressure']:.2f}")
-        self.window.sensor_BME280_2_humidity_lineedit.setText(f"{data['sensor_BME280_2_humidity']:.2f}")
+        # BME280 #2
+        if 'sensor_BME280_2_temperature' in data:
+            self.window.sensor_BME280_2_temperature_lineedit.setText(f"{data['sensor_BME280_2_temperature']:.2f}")
+        if 'sensor_BME280_2_pressure' in data:
+            self.window.sensor_BME280_2_pressure_lineedit.setText(f"{data['sensor_BME280_2_pressure']:.2f}")
+        if 'sensor_BME280_2_humidity' in data:
+            self.window.sensor_BME280_2_humidity_lineedit.setText(f"{data['sensor_BME280_2_humidity']:.2f}")
 
         # ADC (влажность почвы)
         if "adc" in data:
@@ -145,7 +184,7 @@ class ModbusController:
                 values.append(value)
 
             # отправка через ModbusWorker
-            if hasattr(self, "worker"):
+            if self.worker is not None and self.worker.isRunning():
                 self.worker.client.write_registers(
                     REG_Channal_1,  # стартовый регистр (0)
                     values,

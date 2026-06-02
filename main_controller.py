@@ -9,7 +9,7 @@ class MainController():
     def __init__(self, window):
 
         self.window = window
-        # создаем 2 контроллера которые в совю очередь запускают 2 workera на камеры и worker на modbus
+        # создаем 2 контроллера которые в свою очередь запускают 2 workera на камеры и worker на modbus
         self.camera_controller = CameraController(self.window)
         self.modbus_controller = ModbusController(self.window, self.camera_controller)
 

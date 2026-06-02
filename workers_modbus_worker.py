@@ -1,9 +1,12 @@
 from PyQt5 import QtCore
 from pymodbus.client import ModbusSerialClient
 import time
+from datetime import datetime
+import json
 
 from Controllers.camera_controller import CameraController
 from config import *
+import queue
 
 # Сценарий скорей всего прийдется писать здесь
 
@@ -14,6 +17,7 @@ class ModbusWorker(QtCore.QThread):
     def __init__(self, port, camera_controller):
         super().__init__()
         self.running = True
+        self.command_queue = queue.Queue()
 
         self.client = ModbusSerialClient(
             framer="rtu",
@@ -41,8 +45,10 @@ class ModbusWorker(QtCore.QThread):
         # lamp_controller
         self.flag_lamp_controller_callback = 1
         self.flag_camera_controller_callback = 0
+        self.is_auto = 0
         # sensor_controller
-
+        
+        self.last_processed_hour = None
 
         # test
         self.test_time = time.time()
@@ -51,16 +57,25 @@ class ModbusWorker(QtCore.QThread):
         self.client.connect()
 
         while self.running:
+            while not self.command_queue.empty():
+                try:
+                    func, args, kwargs = self.command_queue.get_nowait()
+                    self.sensor_controller_callback()
+                    
+                    time.sleep(0.1)
+                except Exception as e:
+                    print(f"Ошибка обработки UI: {e}")
             
             self.sensor_controller_callback()
-            # self.lamp_controller_callback()
-            # self.irrigation_controller_callback()
-            # self.camera_controller_callback()
 
-            time.sleep(0.5)
+            if self.is_auto:
+                self.lamp_controller_callback()
+                # self.irrigation_controller_callback()
+                # self.camera_controller_callback()
 
+            time.sleep(0.1)
 
-
+        self.client.close()
 
     # sensor_controller
     def sensor_controller_callback(self):
@@ -116,20 +131,67 @@ class ModbusWorker(QtCore.QThread):
     def set_relay(self, reg, value):
         self.client.write_registers(reg, [value], slave=SLAVE_BOARD_ID_1)
 
-
-
-
     ###############################################################################
+
+    def set_mode(self, is_auto):
+        self.is_auto = is_auto
+        # print("Режим поменялся")
+        print(f"Режим изменён → {'Авто' if self.is_auto else 'Ручной'}")
+        # Создаём счётчик последнего часа
+        if self.is_auto:
+            self.set_spectrum_for_lamp()
+        
+        time.sleep(0.1)
+    
     def lamp_controller_callback(self):
-        if self.flag_lamp_controller_callback:
-            d_time = time.time() - self.test_time
-
-            red = 0
-            blue = int(d_time*10 % 200)
-            farred = 0
-            white = int(d_time*10 % 200)
-
+        if not self.is_auto:
+            return
+        
+        local_time = datetime.now()
+        
+        print(local_time.hour, self.last_processed_hour)
+        
+        if local_time.hour != self.last_processed_hour or self.last_processed_hour == -1:
+            self.last_processed_hour = local_time.hour
+            self.set_spectrum_for_lamp()
+            
+            
+    def set_spectrum_for_lamp(self):
+        print(0)
+        local_time = datetime.now()
+        rounded_time = local_time.replace(minute=0, second=0, microsecond=0)
+        standart_time = rounded_time.strftime("%Y-%m-%d %H:%M:%S+03:00")
+        
+        with open("/home/lab1/imitation_of_natural_light/optimum_spectrum_results.json", "r", encoding="utf-8") as f:
+            data = json.load(f)[standart_time]
+            
+            red     = int(max(0, min(200, data[0])))
+            blue    = int(max(0, min(200, data[1])))
+            farred  = int(max(0, min(200, data[2])))
+            white   = int(max(0, min(200, data[3])))
+            
             self.set_channels(red, blue, farred, white)
+            print(f"[{local_time.strftime('%H:%M')}] Автообновление спектра: R{red} B{blue} FR{farred} W{white}")
+
+    # def toggle_auto_mode(self):
+    #     global auto_mode, last_processed_hour
+    #     auto_mode = not auto_mode
+        
+    #     if auto_mode:
+    #         button_auto.setText("Авторежим: ВКЛ")
+    #         button_auto.setStyleSheet("background-color: #2ecc71; color: white; font-weight: bold;")
+    #         # Блокируем ручные кнопки во избежание конфликтов
+    #         button_write.setEnabled(False)
+    #         button_send.setEnabled(False)
+    #         button_scenes.setEnabled(False)
+    #         last_processed_hour = -1
+    #     else:
+    #         button_auto.setText("Включить авторежим по времени")
+    #         button_auto.setStyleSheet("")
+            
+    #         button_write.setEnabled(True)
+    #         button_send.setEnabled(True)
+    #         button_scenes.setEnabled(True)
 
 
     def set_channels(self, red, blue, farred, white):
@@ -139,7 +201,7 @@ class ModbusWorker(QtCore.QThread):
 
         print(values)
 
-        # бужу использовать позже для обновления состояния в line edit
+        # буду использовать позже для обновления состояния в line edit
         # self.current_channels = {
         #     "white": white,
         #     "red": red,
@@ -196,7 +258,7 @@ class ModbusWorker(QtCore.QThread):
 
 
     ############################################################################################
-    # camera_controller_callback тут будем вызывать из нег офункции чтоб сделать фото
+    # camera_controller_callback тут будем вызывать из него офункции чтоб сделать фото
     def camera_controller_callback(self):
 
         current_time = time.time()

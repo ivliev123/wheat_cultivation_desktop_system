@@ -7,18 +7,18 @@ class CameraWorker(QtCore.QThread):
 
     frame_updated = QtCore.pyqtSignal(QtGui.QImage)
 
-    def __init__(self, camera_index=0):
+    def __init__(self, cam_id=0):
         super().__init__()
 
         self.running = True
-        self.camera_index = camera_index
+        self.cam_id = cam_id
 
         self.last_frame = None
 
     def run(self):
 
         self.cap = cv2.VideoCapture(
-            self.camera_index,
+            self.cam_id,
             cv2.CAP_V4L2
         )
 
@@ -72,8 +72,7 @@ class CameraWorker(QtCore.QThread):
 
                 qt_image = QtGui.QImage(
                     preview.data,
-                    w,
-                    h,
+                    w, h,
                     ch * w,
                     QtGui.QImage.Format_RGB888
                 ).copy()
@@ -85,9 +84,7 @@ class CameraWorker(QtCore.QThread):
         self.cap.release()
 
     def get_frame(self):
-
         return self.last_frame
 
     def stop(self):
-
         self.running = False
