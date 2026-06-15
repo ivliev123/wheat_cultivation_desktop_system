@@ -67,16 +67,30 @@ CAM_ID_2 = 2
 PHOTO_FOLDER_1 = "Captures_cam_1"
 PHOTO_FOLDER_2 = "Captures_cam_2"
 
-CAMERA_CAPTURE_INTERVAL = 20
+CAMERA_CAPTURE_INTERVAL = 60 * 1
 
 # =============================================
 
 
 # Полив
 
-IRRIGATION_INTERVAL = 60 * 60        # раз в час
-IRRIGATION_DURATION = 10             # поливать 10 секунд
+IRRIGATION_INTERVAL = 60 * 2       # раз в 2 минуты
+# IRRIGATION_INTERVAL = 60 * 60 * 24 * 2       # раз в 2 дня
+IRRIGATION_DURATION = 41.4          # поливать 41.4 секунд
 
-IRRIGATION_RELAY = REG_Relay_3
+IRRIGATION_RELAY_1 = REG_Relay_3
+IRRIGATION_RELAY_2 = REG_Relay_4
 
 IRRIGATION_STATE_FILE = "irrigation_state.json"
+
+# площадь контейнера 25 см. * 35 см.
+# S = 875 * 10^-4 м2
+# Оросительная норма на контейнер 
+#  3000 м3/га  -->  26,25 л/контейнер за весь сезон
+
+# Сезон полива 90 дней
+# 26.25 / 90 = 0.2916666666666667 л/контейнер в день
+# расходная характеристика насоса 1л за 71с
+# в день насос должен работать 0.2916666666666667 * 71 = 20.708333333333336 секунд
+# в 2 дня насос должен работать 41.41666666666667 секунд
+

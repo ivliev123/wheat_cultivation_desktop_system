@@ -3,10 +3,15 @@ from pymodbus.client import ModbusSerialClient
 import time
 from datetime import datetime
 import json
+import os
+import csv
 
-from Controllers.camera_controller import CameraController
+
+
+# from Controllers.camera_controller import CameraController
 from config import *
 import queue
+
 
 # Сценарий скорей всего прийдется писать здесь
 
@@ -14,7 +19,7 @@ import queue
 class ModbusWorker(QtCore.QThread):
     data_updated = QtCore.pyqtSignal(dict)
 
-    def __init__(self, port, camera_controller):
+    def __init__(self, port, camera_controller, window):
         super().__init__()
         self.running = True
         self.command_queue = queue.Queue()
@@ -29,29 +34,27 @@ class ModbusWorker(QtCore.QThread):
             timeout=0.2
         )
 
+        self.window = window
+        
         # camera_controller
         self.camera_controller = camera_controller
-
         self.last_camera_capture = time.time()
 
-        # irrigaetion_controller_calback
         # irrigation
         self.irrigation_running = False
         self.irrigation_start_time = 0
-
-        # self.last_irrigation_time = self.load_last_irrigation_time()
-
+        self.last_irrigation_time = self.load_last_irrigation_time()
 
         # lamp_controller
         self.flag_lamp_controller_callback = 1
-        self.flag_camera_controller_callback = 0
-        self.is_auto = 0
+        self.flag_irrigation_controller_callback = 1
+        self.is_auto = 1
+
         # sensor_controller
         
+
         self.last_processed_hour = None
 
-        # test
-        self.test_time = time.time()
 
     def run(self):
         self.client.connect()
@@ -68,10 +71,14 @@ class ModbusWorker(QtCore.QThread):
             
             self.sensor_controller_callback()
 
+            # тут нужно будет ввести машину состояния, так как должно выполниться полностью одно перед тем кк начнется другой,
+            # критично для полива, полив может не завершиться и начнет работать камера, и лить будет долго
             if self.is_auto:
                 self.lamp_controller_callback()
-                # self.irrigation_controller_callback()
-                # self.camera_controller_callback()
+                self.irrigation_controller_callback()
+                
+                if self.flag_irrigation_controller_callback == 1:
+                    self.camera_controller_callback() # тут реализовано на задержках поэтому делаем через состояние полива
 
             time.sleep(0.1)
 
@@ -151,7 +158,7 @@ class ModbusWorker(QtCore.QThread):
         
         print(local_time.hour, self.last_processed_hour)
         
-        if local_time.hour != self.last_processed_hour or self.last_processed_hour == -1:
+        if (local_time.hour != self.last_processed_hour or self.last_processed_hour == -1) and self.flag_lamp_controller_callback == 1:
             self.last_processed_hour = local_time.hour
             self.set_spectrum_for_lamp()
             
@@ -173,26 +180,7 @@ class ModbusWorker(QtCore.QThread):
             self.set_channels(red, blue, farred, white)
             print(f"[{local_time.strftime('%H:%M')}] Автообновление спектра: R{red} B{blue} FR{farred} W{white}")
 
-    # def toggle_auto_mode(self):
-    #     global auto_mode, last_processed_hour
-    #     auto_mode = not auto_mode
-        
-    #     if auto_mode:
-    #         button_auto.setText("Авторежим: ВКЛ")
-    #         button_auto.setStyleSheet("background-color: #2ecc71; color: white; font-weight: bold;")
-    #         # Блокируем ручные кнопки во избежание конфликтов
-    #         button_write.setEnabled(False)
-    #         button_send.setEnabled(False)
-    #         button_scenes.setEnabled(False)
-    #         last_processed_hour = -1
-    #     else:
-    #         button_auto.setText("Включить авторежим по времени")
-    #         button_auto.setStyleSheet("")
-            
-    #         button_write.setEnabled(True)
-    #         button_send.setEnabled(True)
-    #         button_scenes.setEnabled(True)
-
+    # запись данных в БД...
 
     def set_channels(self, red, blue, farred, white):
         values = [red, blue, farred, white]
@@ -200,15 +188,9 @@ class ModbusWorker(QtCore.QThread):
         self.client.write_registers(REG_Channal_1, values, slave=SLAVE_BOARD_ID_1)
 
         print(values)
-
-        # буду использовать позже для обновления состояния в line edit
-        # self.current_channels = {
-        #     "white": white,
-        #     "red": red,
-        #     "blue": blue,
-        #     "farred": farred
-        # }
-    
+        # обновление состояния в line edit
+        for i, value in enumerate(values):
+            self.window.channel_widgets[i].setText(str(value))
 
 
 
@@ -220,41 +202,65 @@ class ModbusWorker(QtCore.QThread):
         # =========================
         # Запуск полива
         # =========================
-
         if not self.irrigation_running:
 
             if current_time - self.last_irrigation_time >= IRRIGATION_INTERVAL:
-
+                self.flag_irrigation_controller_callback = 0
                 print("START IRRIGATION")
 
                 self.irrigation_running = True
                 self.irrigation_start_time = current_time
 
                 # включаем реле
-                self.set_relay(IRRIGATION_RELAY, 1)
+                self.set_relay(IRRIGATION_RELAY_1, 1)
+                self.set_relay(IRRIGATION_RELAY_2, 1)
 
         # =========================
         # Остановка полива
         # =========================
-
         else:
 
             if current_time - self.irrigation_start_time >= IRRIGATION_DURATION:
 
                 print("STOP IRRIGATION")
 
-                self.set_relay(IRRIGATION_RELAY, 0)
-
+                self.set_relay(IRRIGATION_RELAY_1, 0)
+                self.set_relay(IRRIGATION_RELAY_2, 0)
                 self.irrigation_running = False
 
                 self.last_irrigation_time = current_time
 
                 self.save_last_irrigation_time(current_time)
 
+                self.flag_irrigation_controller_callback = 1
 
 
 
+    def save_last_irrigation_time(self, timestamp):
 
+        data = {
+            "last_irrigation_time": timestamp
+        }
+
+        with open(IRRIGATION_STATE_FILE, "w") as f:
+            json.dump(data, f)
+
+            
+
+    def load_last_irrigation_time(self):
+
+        if not os.path.exists(IRRIGATION_STATE_FILE):
+            return 0
+
+        try:
+            with open(IRRIGATION_STATE_FILE, "r") as f:
+                data = json.load(f)
+
+            return data.get("last_irrigation_time", 0)
+
+        except:
+            return 0
+            
 
 
     ############################################################################################
@@ -268,14 +274,12 @@ class ModbusWorker(QtCore.QThread):
             self.flag_lamp_controller_callback = 0
             time.sleep(0.5)     # нужно для того чтоб лампа перешла в режим ожидания команды
             self.set_channels(0, 0, 0, 50)
-            # r = self.client.read_holding_registers(REG_Channal_1, count=4, slave=SLAVE_BOARD_ID_1)
-            # print(r)
-            # print(r.registers)
-            self.flag_camera_controller_callback = 1
 
-
-        if self.flag_camera_controller_callback == 1:
-            time.sleep(10)
+            time.sleep(5)
             self.camera_controller.take_photo()
             time.sleep(1)
             self.flag_lamp_controller_callback = 1
+
+            # вернуть рабочий спектр
+            if self.is_auto:
+                self.set_spectrum_for_lamp()

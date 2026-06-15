@@ -60,7 +60,7 @@ class ModbusController:
 
         try:
             self.serial_manager.connect(port)
-            self.worker = ModbusWorker(port, self.camera_controller)
+            self.worker = ModbusWorker(port, self.camera_controller, self.window)
             self.worker.data_updated.connect(self.update_ui)
             self.worker.set_mode(self.is_auto)
             self.worker.start()
