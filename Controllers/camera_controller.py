@@ -65,13 +65,43 @@ class CameraController:
 
 
 
+    # def capture_highres_photo(self, worker, folder):
+
+    #     frame = worker.get_frame()
+
+    #     if frame is None:
+    #         print("No frame")
+    #         return
+
+    #     filename = (
+    #         f"{folder}/photo_"
+    #         f"{time.strftime('%Y%m%d_%H%M%S')}.jpg"
+    #     )
+
+    #     cv2.imwrite(filename, frame)
+
+    #     print(f"Saved: {filename}")
+
+            
+    # def take_photo(self):
+
+    #     for index, cam in enumerate(self.camera_configs):
+
+    #         worker = self.camera_workers[index]
+
+    #         self.capture_highres_photo(
+    #             worker,
+    #             cam["folder"]
+    #         )
+
+
     def capture_highres_photo(self, worker, folder):
 
         frame = worker.get_frame()
 
         if frame is None:
             print("No frame")
-            return
+            return None
 
         filename = (
             f"{folder}/photo_"
@@ -82,14 +112,23 @@ class CameraController:
 
         print(f"Saved: {filename}")
 
-            
+        return filename
+
+
     def take_photo(self):
+
+        filenames = []
 
         for index, cam in enumerate(self.camera_configs):
 
             worker = self.camera_workers[index]
 
-            self.capture_highres_photo(
+            filename = self.capture_highres_photo(
                 worker,
                 cam["folder"]
             )
+
+            if filename is not None:
+                filenames.append(filename)
+
+        return filenames

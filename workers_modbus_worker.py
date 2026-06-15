@@ -50,7 +50,18 @@ class ModbusWorker(QtCore.QThread):
         self.flag_irrigation_controller_callback = 1
         self.is_auto = 1
 
+        self.current_red = 0
+        self.current_blue = 0
+        self.current_farred = 0
+        self.current_white = 0
+
         # sensor_controller
+
+
+        # save data
+        self.sensor_buffer = []
+        os.makedirs("Data", exist_ok=True)
+        self.init_csv_files()
         
 
         self.last_processed_hour = None
@@ -122,6 +133,11 @@ class ModbusWorker(QtCore.QThread):
             if not r.isError():
                 data["flow"] = r.registers
 
+            self.sensor_buffer.append(data)
+
+            if len(self.sensor_buffer) > 5:
+                self.sensor_buffer.pop(0)
+            
             self.data_updated.emit(data)
 
         except Exception as e:
@@ -185,6 +201,12 @@ class ModbusWorker(QtCore.QThread):
     def set_channels(self, red, blue, farred, white):
         values = [red, blue, farred, white]
 
+        if self.flag_lamp_controller_callback == 1:
+            self.current_red = red
+            self.current_blue = blue
+            self.current_farred = farred
+            self.current_white = white
+
         self.client.write_registers(REG_Channal_1, values, slave=SLAVE_BOARD_ID_1)
 
         print(values)
@@ -210,10 +232,12 @@ class ModbusWorker(QtCore.QThread):
 
                 self.irrigation_running = True
                 self.irrigation_start_time = current_time
+                self.irrigation_start_datetime = datetime.now()
 
                 # включаем реле
                 self.set_relay(IRRIGATION_RELAY_1, 1)
                 self.set_relay(IRRIGATION_RELAY_2, 1)
+                
 
         # =========================
         # Остановка полива
@@ -231,6 +255,11 @@ class ModbusWorker(QtCore.QThread):
                 self.last_irrigation_time = current_time
 
                 self.save_last_irrigation_time(current_time)
+                self.save_irrigation_log(
+                    self.irrigation_start_datetime,
+                    datetime.now(),
+                    current_time - self.irrigation_start_time
+                )
 
                 self.flag_irrigation_controller_callback = 1
 
@@ -276,10 +305,123 @@ class ModbusWorker(QtCore.QThread):
             self.set_channels(0, 0, 0, 50)
 
             time.sleep(5)
-            self.camera_controller.take_photo()
+            photo_names = self.camera_controller.take_photo()
             time.sleep(1)
+            self.save_sensor_data(photo_names)             # сохраняем данные при каждом фото
             self.flag_lamp_controller_callback = 1
 
             # вернуть рабочий спектр
             if self.is_auto:
                 self.set_spectrum_for_lamp()
+
+
+
+
+    def init_csv_files(self):
+
+        irrigation_file = "Data/irrigation_log.csv"
+
+        if not os.path.exists(irrigation_file):
+
+            with open(irrigation_file, "w", newline="") as f:
+
+                writer = csv.writer(f)
+
+                writer.writerow([
+                    "start_time",
+                    "stop_time",
+                    "duration_sec"
+                ])
+
+        sensor_file = "Data/sensor_log.csv"
+
+        if not os.path.exists(sensor_file):
+
+            with open(sensor_file, "w", newline="") as f:
+
+                writer = csv.writer(f)
+
+                header = [
+                    "timestamp",
+
+                    "photo_name_1",
+                    "photo_name_2",
+
+                    "red",
+                    "blue",
+                    "farred",
+                    "white",
+
+                    "bme1_temp",
+                    "bme1_pressure",
+                    "bme1_humidity",
+
+                    "bme2_temp",
+                    "bme2_pressure",
+                    "bme2_humidity",
+                ]
+
+                for adc_num in range(1, 9):
+                    for sample_num in range(1, 6):
+                        header.append(f"adc{adc_num}_{sample_num}")
+
+                for flow_num in range(1, 5):
+                    header.append(f"flow{flow_num}")
+
+                writer.writerow(header)
+
+
+
+    def save_sensor_data(self, photo_names):
+
+        if len(self.sensor_buffer) < 5:
+            return
+
+        samples = self.sensor_buffer[-5:]
+
+        latest = samples[-1]
+
+        row = [
+
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+
+            photo_names[0],
+            photo_names[1],
+
+            self.current_red,
+            self.current_blue,
+            self.current_farred,
+            self.current_white,
+
+            latest["sensor_BME280_1_temperature"],
+            latest["sensor_BME280_1_pressure"],
+            latest["sensor_BME280_1_humidity"],
+
+            latest["sensor_BME280_2_temperature"],
+            latest["sensor_BME280_2_pressure"],
+            latest["sensor_BME280_2_humidity"]
+        ]
+
+        for adc_idx in range(8):
+            for sample in samples:
+                row.append(sample["adc"][adc_idx])
+
+
+        row.extend(latest["flow"])
+
+        with open("Data/sensor_log.csv", "a", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(row)
+
+
+    def save_irrigation_log(self, start_time, stop_time, duration):
+
+        with open("Data/irrigation_log.csv", "a", newline="") as f:
+
+            writer = csv.writer(f)
+
+            writer.writerow([
+                start_time.strftime("%Y-%m-%d %H:%M:%S"),
+                stop_time.strftime("%Y-%m-%d %H:%M:%S"),
+                round(duration, 1)
+            ])

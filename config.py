@@ -67,15 +67,15 @@ CAM_ID_2 = 2
 PHOTO_FOLDER_1 = "Captures_cam_1"
 PHOTO_FOLDER_2 = "Captures_cam_2"
 
-CAMERA_CAPTURE_INTERVAL = 60 * 1
+CAMERA_CAPTURE_INTERVAL = 60 * 2
 
 # =============================================
 
 
 # Полив
 
-IRRIGATION_INTERVAL = 60 * 2       # раз в 2 минуты
-# IRRIGATION_INTERVAL = 60 * 60 * 24 * 2       # раз в 2 дня
+# IRRIGATION_INTERVAL = 60 * 2       # раз в 2 минуты
+IRRIGATION_INTERVAL = 60 * 60 * 24 * 2       # раз в 2 дня
 IRRIGATION_DURATION = 41.4          # поливать 41.4 секунд
 
 IRRIGATION_RELAY_1 = REG_Relay_3
