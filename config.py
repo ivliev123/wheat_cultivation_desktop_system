@@ -67,7 +67,7 @@ CAM_ID_2 = 2
 PHOTO_FOLDER_1 = "Captures_cam_1"
 PHOTO_FOLDER_2 = "Captures_cam_2"
 
-CAMERA_CAPTURE_INTERVAL = 60 * 2
+CAMERA_CAPTURE_INTERVAL = 60 * 20
 
 # =============================================
 
